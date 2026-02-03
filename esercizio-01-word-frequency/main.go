@@ -22,6 +22,7 @@ func main() {
 	flag.Parse()
 	files := flag.Args()
 
+	// Leggi da file se forniti, altrimenti da stdin.
 	if len(files) > 0 {
 		for _, filename := range files {
 			f, err := os.Open(filename)
@@ -39,6 +40,8 @@ func main() {
 			fmt.Fprintln(os.Stderr, "errore lettura stdin:", err)
 		}
 	}
+
+	// Converti la mappa in slice per poter ordinare per frequenza.
 	items := make([]WordCount, 0, len(counts))
 	for w, c := range counts {
 		items = append(items, WordCount{Word: w, Count: c})
@@ -49,6 +52,7 @@ func main() {
 		}
 		return items[i].Word < items[j].Word
 	})
+	// Calcola statistiche globali.
 	totalWords := 0
 	for _, item := range items {
 		totalWords += item.Count
@@ -64,6 +68,7 @@ func main() {
 		fmt.Println("Tutte le parole (ordinate per frequenza):")
 	}
 
+	// Limita la stampa se è stato richiesto un top N.
 	limit := len(items)
 	if *top > 0 && *top < limit {
 		limit = *top
@@ -85,6 +90,7 @@ func countLines(f *os.File, counts map[string]int, ignoreCase bool) error {
 		if ignoreCase {
 			line = strings.ToLower(line)
 		}
+		// Spezza la riga in parole ignorando punteggiatura e spazi.
 		words := strings.FieldsFunc(line, func(r rune) bool {
 			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 		})
