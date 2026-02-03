@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"unicode"
 )
@@ -33,12 +34,31 @@ func main() {
 			fmt.Fprintln(os.Stderr, "errore lettura stdin:", err)
 		}
 	}
+	items := make([]WordCount, 0, len(counts))
+	for w, c := range counts {
+		items = append(items, WordCount{Word: w, Count: c})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Count != items[j].Count {
+			return items[i].Count > items[j].Count
+		}
+		return items[i].Word < items[j].Word
+	})
+	totalWords := 0
+	for _, item := range items {
+		totalWords += item.Count
+	}
+	uniqueWords := len(counts)
 
-	for line, n := range counts {
-		if n > 1 {
-			fmt.Printf("%d\t%s\n", n, line)
+	fmt.Printf("Parole totali: %d\n", totalWords)
+	fmt.Printf("Parole uniche: %d\n\n", uniqueWords)
+
+	for _, item := range items {
+		if item.Count > 1 {
+			fmt.Printf("%d\t%s\n", item.Count, item.Word)
 		}
 	}
+
 }
 
 func countLines(f *os.File, counts map[string]int) error {
