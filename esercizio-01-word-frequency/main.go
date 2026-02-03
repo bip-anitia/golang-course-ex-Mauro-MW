@@ -18,6 +18,7 @@ type WordCount struct {
 func main() {
 	counts := make(map[string]int)
 	top := flag.Int("top", 0, "numero di parole da mostrare (0 = tutte)")
+	ignoreCase := flag.Bool("ignore-case", true, "ignora maiuscole/minuscole")
 	flag.Parse()
 	files := flag.Args()
 
@@ -28,13 +29,13 @@ func main() {
 				fmt.Fprintln(os.Stderr, "errore apertura file:", err)
 				continue
 			}
-			if err := countLines(f, counts); err != nil {
+			if err := countLines(f, counts, *ignoreCase); err != nil {
 				fmt.Fprintln(os.Stderr, "errore lettura file:", err)
 			}
 			f.Close()
 		}
 	} else {
-		if err := countLines(os.Stdin, counts); err != nil {
+		if err := countLines(os.Stdin, counts, *ignoreCase); err != nil {
 			fmt.Fprintln(os.Stderr, "errore lettura stdin:", err)
 		}
 	}
@@ -67,10 +68,13 @@ func main() {
 
 }
 
-func countLines(f *os.File, counts map[string]int) error {
+func countLines(f *os.File, counts map[string]int, ignoreCase bool) error {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := strings.ToLower(scanner.Text())
+		line := scanner.Text()
+		if ignoreCase {
+			line = strings.ToLower(line)
+		}
 		words := strings.FieldsFunc(line, func(r rune) bool {
 			return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 		})
