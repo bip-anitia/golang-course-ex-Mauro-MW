@@ -1,11 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+	"net/http"
 
 	"golang.org/x/net/html"
 )
+
+type PageInfo struct {
+	URL         string
+	Title       string
+	StatusCode  int
+	ContentSize int
+	LinkCount   int
+	Error       error
+}
 
 func main() {
 	// TODO: Implementare il concurrent web scraper
@@ -36,4 +47,32 @@ func extractTitleAndLinks(r io.Reader) (string, int) {
 	visit(doc)
 
 	return title, linkCount
+}
+
+func fetch(url string, client *http.Client) PageInfo {
+	page := PageInfo{
+		URL: url,
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "go-scraper/1.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		page.Error = err
+		return page
+	}
+	defer resp.Body.Close()
+
+	page.StatusCode = resp.StatusCode
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		page.Error = err
+		return page
+	}
+	page.ContentSize = len(data)
+	page.Title, page.LinkCount = extractTitleAndLinks(bytes.NewReader(data))
+	return page
+
 }
