@@ -62,11 +62,21 @@ var countCmd = &cobra.Command{
 	},
 }
 
+var searchCmd = &cobra.Command{
+	Use:   "search [files...]",
+	Short: "Search for a pattern in files",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// TODO
+		return nil
+	},
+}
+
 var (
 	flagLines   int
 	flagFormat  string
 	flagVerbose bool
 	flagQuiet   bool
+	flagPattern string
 )
 
 type Stats struct{ Lines, Words, Chars int }
@@ -77,6 +87,9 @@ func init() {
 	countCmd.Flags().StringVar(&flagFormat, "format", "text", "output format")
 	countCmd.Flags().BoolVar(&flagVerbose, "verbose", false, "verbose output")
 	countCmd.Flags().BoolVar(&flagQuiet, "quiet", false, "quiet output")
+	searchCmd.Flags().StringVar(&flagPattern, "pattern", "", "pattern to search")
+	searchCmd.MarkFlagRequired("pattern")
+	rootCmd.AddCommand(searchCmd)
 }
 
 func main() {
