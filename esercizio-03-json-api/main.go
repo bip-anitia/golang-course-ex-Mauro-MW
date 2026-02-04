@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -103,9 +104,72 @@ func handleBooks(store *BookStore) http.HandlerFunc {
 			books := store.List()
 			writeJSON(w, http.StatusOK, map[string]any{"books": books})
 		case http.MethodPost:
+			var b Book
+			if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+				writeError(w, http.StatusBadRequest, "invalid json")
+				return
+			}
+			b.Title = strings.TrimSpace(b.Title)
+			b.Author = strings.TrimSpace(b.Author)
+			b.ISBN = strings.TrimSpace(b.ISBN)
+			if b.Title == "" || b.Author == "" || b.ISBN == "" || b.PublishYear <= 0 {
+				writeError(w, http.StatusBadRequest, "invalid book data")
+				return
+			}
+			created := store.Create(b)
+			writeJSON(w, http.StatusCreated, created)
 		default:
 			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 
+	}
+}
+
+func handleBook(store *BookStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if !strings.HasPrefix(path, "/books/") {
+			writeError(w, http.StatusNotFound, "not found")
+			return
+		}
+		id := strings.TrimPrefix(path, "/books/")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "missing id")
+			return
+		}
+
+		switch r.Method {
+
+		case http.MethodGet:
+			book, ok := store.Get(id)
+			if !ok {
+				writeError(w, http.StatusNotFound, "not found")
+				return
+			}
+			writeJSON(w, http.StatusOK, book)
+		case http.MethodPut:
+			var b Book
+			if err := json.NewDecoder(r.Body).Decode(&b); err != nil {
+				writeError(w, http.StatusBadRequest, "invalid json")
+				return
+			}
+			b.Title = strings.TrimSpace(b.Title)
+			b.Author = strings.TrimSpace(b.Author)
+			b.ISBN = strings.TrimSpace(b.ISBN)
+			if b.Title == "" || b.Author == "" || b.ISBN == "" || b.PublishYear <= 0 {
+				writeError(w, http.StatusBadRequest, "invalid book data")
+				return
+			}
+			updated, ok := store.Update(id, b)
+			if !ok {
+				writeError(w, http.StatusNotFound, "not found")
+				return
+			}
+			writeJSON(w, http.StatusOK, updated)
+		case http.MethodDelete:
+			// ...
+		default:
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		}
 	}
 }
