@@ -83,12 +83,60 @@ var searchCmd = &cobra.Command{
 	},
 }
 
+var statsCmd = &cobra.Command{
+	Use:   "stats [files...]",
+	Short: "Stats for a pattern in files",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("no files provided")
+		}
+
+		f := strings.ToLower(statsFormat)
+		if f != "text" && f != "json" && f != "csv" {
+			return fmt.Errorf("invalid format: %s", statsFormat)
+		}
+		statsFormat = f
+
+		total := Stats{}
+		for _, path := range args {
+			s, err := countFile(path, statsLines)
+			if err != nil {
+				return err
+			}
+			total.Lines += s.Lines
+			total.Words += s.Words
+			total.Chars += s.Chars
+		}
+
+		switch statsFormat {
+		case "text":
+			fmt.Printf("Files: %d\n", len(args))
+			fmt.Printf("Total lines: %d\n", total.Lines)
+			fmt.Printf("Total words: %d\n", total.Words)
+			fmt.Printf("Total chars: %d\n", total.Chars)
+		case "json":
+			json.NewEncoder(os.Stdout).Encode(map[string]any{
+				"files": len(args),
+				"lines": total.Lines,
+				"words": total.Words,
+				"chars": total.Chars,
+			})
+		case "csv":
+			fmt.Println("files,lines,words,chars")
+			fmt.Printf("%d,%d,%d,%d\n", len(args), total.Lines, total.Words, total.Chars)
+		}
+		return nil
+	},
+}
+
 var (
 	flagLines   int
 	flagFormat  string
 	flagVerbose bool
 	flagQuiet   bool
 	flagPattern string
+	statsLines  int
+	statsFormat string
 )
 
 type Stats struct{ Lines, Words, Chars int }
@@ -102,6 +150,10 @@ func init() {
 	searchCmd.Flags().StringVar(&flagPattern, "pattern", "", "pattern to search")
 	searchCmd.MarkFlagRequired("pattern")
 	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(statsCmd)
+	statsCmd.Flags().IntVar(&statsLines, "lines", 0, "number of lines to process")
+	statsCmd.Flags().StringVar(&statsFormat, "format", "text", "output format")
+
 }
 
 func main() {
