@@ -161,17 +161,26 @@ func fetch(url string, client *http.Client) PageInfo {
 		URL: url,
 	}
 
-	req, _ := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		page.Error = err
+		return page
+	}
+
 	req.Header.Set("User-Agent", "go-scraper/1.0")
 
 	resp, err := client.Do(req)
+
 	if err != nil {
 		page.Error = err
 		return page
 	}
 	defer resp.Body.Close()
-
 	page.StatusCode = resp.StatusCode
+	if resp.StatusCode >= 400 {
+		page.Error = fmt.Errorf("bad status: %d", resp.StatusCode)
+		return page
+	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
