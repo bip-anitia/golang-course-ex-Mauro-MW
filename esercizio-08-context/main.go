@@ -6,7 +6,12 @@ import (
 	"time"
 )
 
-func withValueExample() { /* key type-safe + helper getter */ }
+type contextKey string
+
+const (
+	requestIDKey contextKey = "requestID"
+	userIDKey    contextKey = "userID"
+)
 
 func main() {
 	withTimeoutExample()
@@ -143,4 +148,40 @@ func workerPoolWithContextExample() {
 		}
 	}
 	fmt.Println("worker pool example done: all results received")
+}
+
+func withValueExample() {
+	fmt.Println("\nwith value example: start")
+
+	ctx := context.Background()
+	ctx = withRequestID(ctx, "req-12345")
+	ctx = withUserID(ctx, 42)
+
+	requestID, okReq := requestIDFromContext(ctx)
+	userID, okUser := userIDFromContext(ctx)
+
+	if !okReq || !okUser {
+		fmt.Println("with value example: missing context values")
+		return
+	}
+
+	fmt.Printf("with value example: requestID=%s userID=%d\n", requestID, userID)
+}
+
+func withRequestID(ctx context.Context, requestID string) context.Context {
+	return context.WithValue(ctx, requestIDKey, requestID)
+}
+
+func requestIDFromContext(ctx context.Context) (string, bool) {
+	value, ok := ctx.Value(requestIDKey).(string)
+	return value, ok
+}
+
+func withUserID(ctx context.Context, userID int) context.Context {
+	return context.WithValue(ctx, userIDKey, userID)
+}
+
+func userIDFromContext(ctx context.Context) (int, bool) {
+	value, ok := ctx.Value(userIDKey).(int)
+	return value, ok
 }
