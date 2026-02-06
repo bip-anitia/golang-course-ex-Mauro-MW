@@ -1,12 +1,17 @@
 package main
 
-import (
-	"context"
-	"fmt"
-)
+func withTimeoutExample()           { /* context.WithTimeout + select */ }
+func withCancellationExample()      { /* context.WithCancel + ticker */ }
+func workerPoolWithContextExample() { /* workers che ascoltano ctx.Done() */ }
+func pipelineWithContextExample()   { /* stage che esce su ctx.Done() */ }
+func withValueExample()             { /* key type-safe + helper getter */ }
 
 func main() {
-	// TODO: Implementare esempi di context usage
-	ctx := context.Background()
-	fmt.Println("Context Propagation", ctx)
+	withTimeoutExample()
+	withCancellationExample()
+	workerPoolWithContextExample()
+	pipelineWithContextExample()
+	withValueExample()
 }
+
+
