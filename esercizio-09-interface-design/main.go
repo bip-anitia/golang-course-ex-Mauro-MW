@@ -40,6 +40,19 @@ func NewFileStorage(baseDir string) (*FileStorage, error) {
 	return &FileStorage{baseDir: baseDir}, nil
 }
 
+type CachedStorage struct {
+	backend Storage
+	cache   map[string][]byte
+	mu      sync.RWMutex
+}
+
+func NewCachedStorage(backend Storage) *CachedStorage {
+	return &CachedStorage{
+		backend: backend,
+		cache:   make(map[string][]byte),
+	}
+}
+
 func encodeKey(key string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(key))
 }
@@ -126,12 +139,6 @@ func NewMemoryStorage() *MemoryStorage {
 	}
 }
 
-type CachedStorage struct {
-	backend Storage
-	cache   map[string][]byte
-	mu      sync.RWMutex
-}
-
 func (f *FileStorage) Put(key string, value []byte) error {
 	f.mu.RLock()
 	if f.closed {
@@ -152,6 +159,7 @@ func (f *FileStorage) Put(key string, value []byte) error {
 func (f *FileStorage) Get(key string) ([]byte, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
+
 	if f.closed {
 		return nil, errors.New("storage closed")
 	}
@@ -163,7 +171,27 @@ func (f *FileStorage) Get(key string) ([]byte, error) {
 		}
 		return nil, err
 	}
+
 	return data, nil
+}
+
+func (c *CachedStorage) Get(key string) ([]byte, error) {
+	c.mu.RLock()
+	if value, ok := c.cache[key]; ok {
+		copied := append([]byte(nil), value...)
+		c.mu.RUnlock()
+		return copied, nil
+	}
+	c.mu.RUnlock()
+
+	value, err := c.backend.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	c.cache[key] = append([]byte(nil), value...)
+	c.mu.Unlock()
+	return value, nil
 }
 
 func (f *FileStorage) Delete(key string) error {
@@ -221,9 +249,46 @@ func createStorage(storageType string) (Storage, error) {
 		return NewMemoryStorage(), nil
 	case "file":
 		return NewFileStorage("./data")
+	case "cached":
+		backend, err := NewFileStorage("./data")
+		if err != nil {
+			return nil, err
+		}
+		return NewCachedStorage(backend), nil
 	default:
 		return nil, fmt.Errorf("unknown storage type: %s", storageType)
 	}
+}
+
+func (c *CachedStorage) Put(key string, value []byte) error {
+	if err := c.backend.Put(key, value); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.cache[key] = append([]byte(nil), value...)
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *CachedStorage) Delete(key string) error {
+	if err := c.backend.Delete(key); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	delete(c.cache, key)
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *CachedStorage) List() ([]string, error) {
+	return c.backend.List()
+}
+
+func (c *CachedStorage) Close() error {
+	c.mu.Lock()
+	c.cache = make(map[string][]byte)
+	c.mu.Unlock()
+	return c.backend.Close()
 }
 
 func runDemo(storage Storage) error {
@@ -260,7 +325,7 @@ func runDemo(storage Storage) error {
 }
 
 func main() {
-	for _, storageType := range []string{"memory", "file"} {
+	for _, storageType := range []string{"memory", "file", "cached"} {
 		fmt.Println("\n===", storageType, "===")
 		storage, err := createStorage(storageType)
 		if err != nil {
